@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sing — Pitch Trainer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>🎤 Sing</h1>
+      <p class="tagline">Sing a note and see exactly where you land.</p>
+    </header>
+
+    <section class="controls">
+      <button id="startBtn" class="primary">Start microphone</button>
+      <button id="stopBtn" disabled>Stop microphone</button>
+      <button id="recordBtn" disabled>Record</button>
+      <span id="recStatus" class="rec-status"></span>
+    </section>
+    <p id="micStatus" class="mic-status" role="status"></p>
+
+    <section class="note-panel inactive" id="notePanel">
+      <div class="note" id="noteDisplay">—</div>
+      <div class="cents" id="centsDisplay">±0 ¢</div>
+      <div class="gauge" aria-hidden="true">
+        <div class="needle" id="needle"></div>
+      </div>
+      <div class="gauge-labels">
+        <span>flat</span><span>in tune</span><span>sharp</span>
+      </div>
+    </section>
+
+    <section class="trainer">
+      <label class="train-toggle">
+        <input type="checkbox" id="trainToggle" checked>
+        Train against a target note
+      </label>
+      <div class="target-row">
+        <select id="targetSelect" aria-label="Target note"></select>
+        <span id="targetInfo" class="target-info"></span>
+      </div>
+    </section>
+
+    <section class="history">
+      <h2>Your last 30 seconds</h2>
+      <canvas id="history"></canvas>
+    </section>
+
+    <section class="tips">
+      <h2>Beginner tips</h2>
+      <ul>
+        <li>Sit or stand tall, shoulders relaxed, jaw loose.</li>
+        <li>Hum the note before adding words — pitch first, tone second.</li>
+        <li>Start around middle C (C4); it sits comfortably in most voices.</li>
+        <li>Chase the green zone (±5 ¢), not a perfect number.</li>
+        <li>Short daily sessions (5–10 min) beat one long one.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
