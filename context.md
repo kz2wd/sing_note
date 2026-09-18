@@ -5,10 +5,31 @@ Build a web interface that records sound from the device microphone and tells
 the user the note being sung, for singing training (user is a beginner).
 
 ## Status: COMPLETE (unverified)
-All files are written to the project root. Not yet syntax-checked or tested in
-a browser because this session's terminal sandbox was broken (Zed was not
-opened inside WSL, so `node` was unavailable). **First thing to do in the new
-session: verify, see "Verification" below.**
+All files are written to the project root. `node --check app.js` passes and
+`app.js` is free of lint diagnostics, but it has **not** been tested in a
+browser yet. **First thing to do in the new session: verify, see "Verification"
+below** — including the new **Training run** mode.
+
+## New feature: Training run mode (2026-09-18)
+Added a third mode alongside **Free** and **Target note** (those are unchanged).
+The old `#trainToggle` checkbox was replaced by a 3-way radio selector
+(`input[name="mode"]`: `free` / `target` / `run`); `app.js` now uses
+`currentMode()` / `isFreeMode()` / `currentTargetMidi()` / `effectiveTolerance()`
+instead of `trainToggle.checked`.
+
+A **run** generates a sequence of notes (or uses a user-typed melody). The user
+sings the current note within an accuracy band and **holds** it for a required
+duration; only then does it advance to the next note. Transitions are **not
+scored** — the note simply won't advance until the user is on it.
+
+Tunables (all in the `data-body="run"` panel): **accuracy** (±¢ band, 10–80),
+**hold time** (0.5–3 s), **number of notes** (4–16), **pattern** (random walk /
+ascending / descending / wave / custom melody). Key helpers in `app.js`:
+`run` state object, `generateNotes`, `parseMelody`/`nameToMidi`, `startRun`,
+`resetRun`, `advanceRun` (hold-to-advance), `updateRunUI` (progress bar + note
+chips + "n / N" status), `onModeChange`. UI: progress bar fills as the hold
+accumulates, note chips highlight current/done. Run resets when the mic stops or
+the mode leaves `run`.
 
 ## Files (all in project root)
 | File | Purpose |

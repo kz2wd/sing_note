@@ -33,13 +33,80 @@
     </section>
 
     <section class="trainer">
-      <label class="train-toggle">
-        <input type="checkbox" id="trainToggle" checked>
-        Train against a target note
-      </label>
-      <div class="target-row">
-        <select id="targetSelect" aria-label="Target note"></select>
-        <span id="targetInfo" class="target-info"></span>
+      <div class="mode-row" role="radiogroup" aria-label="Mode">
+        <label class="mode-option"><input type="radio" name="mode" value="free"> Free</label>
+        <label class="mode-option"><input type="radio" name="mode" value="target" checked> Target note</label>
+        <label class="mode-option"><input type="radio" name="mode" value="run"> Training run</label>
+      </div>
+
+      <div class="mode-body" data-body="target">
+        <div class="target-row">
+          <select id="targetSelect" aria-label="Target note"></select>
+          <span id="targetInfo" class="target-info"></span>
+        </div>
+      </div>
+
+      <div class="mode-body" data-body="run" hidden>
+        <p class="run-help">Sing each note within the accuracy band and hold it for the required time to move on. You manage the transitions however feels right — there's no penalty, the note just won't advance until you're on it.</p>
+        <div class="run-params">
+          <label class="field">
+            <span>Accuracy</span>
+            <select id="accuracySelect">
+              <option value="10">±10 ¢ (tight)</option>
+              <option value="20">±20 ¢</option>
+              <option value="30" selected>±30 ¢ (easy)</option>
+              <option value="50">±50 ¢ (loose)</option>
+              <option value="80">±80 ¢ (very loose)</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Hold time</span>
+            <select id="durationSelect">
+              <option value="0.5">0.5 s</option>
+              <option value="1">1 s</option>
+              <option value="1.5" selected>1.5 s</option>
+              <option value="2">2 s</option>
+              <option value="3">3 s</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Notes</span>
+            <select id="countSelect">
+              <option value="4">4</option>
+              <option value="6">6</option>
+              <option value="8" selected>8</option>
+              <option value="10">10</option>
+              <option value="12">12</option>
+              <option value="16">16</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Pattern</span>
+            <select id="patternSelect">
+              <option value="random" selected>Random walk</option>
+              <option value="up">Ascending</option>
+              <option value="down">Descending</option>
+              <option value="wave">Wave</option>
+              <option value="custom">My melody</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="melody-row" id="melodyRow" hidden>
+          <label class="field full">
+            <span>Your melody (space or comma separated, e.g. C4 D4 E5)</span>
+            <input type="text" id="melodyInput" placeholder="C4  D#4  E4  F4" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+
+        <div class="run-actions">
+          <button id="startRunBtn" class="primary">Start run</button>
+          <span id="runStatusText" class="run-status-text"></span>
+        </div>
+        <div class="run-progress" id="runProgress" hidden>
+          <div class="run-progress-fill" id="runProgressFill"></div>
+        </div>
+        <div class="run-notes" id="runNotes" hidden></div>
       </div>
     </section>
 

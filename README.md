@@ -2,8 +2,9 @@
 
 A tiny, dependency-free web app for singers in training: it listens to your
 microphone, detects the pitch you're producing, and shows you the note and how
-far off (in cents) you are. Includes a target-note trainer, a ±50¢ gauge, and a
-30-second pitch-history graph. You can also record takes and download them.
+far off (in cents) you are. Pick a mode — **Free**, **Target note**, or
+**Training run** — each with a ±50¢ gauge and a 30-second pitch-history graph.
+You can also record takes and download them.
 
 ## Run it
 
@@ -30,15 +31,20 @@ powershell -ExecutionPolicy Bypass -File .\wsl-localhost-proxy.ps1
 ## Usage
 
 1. **Start microphone** — the big note display lights up as you sing or hum.
-2. **Free mode** — uncheck *Train against a target note* to just see which note
-   you're closest to, and how many cents flat (red) or sharp (orange) you are.
-   Green means within ±5¢.
-3. **Trainer mode** — pick a target note (C2–C6, default C4). The gauge and
+2. **Free mode** — just see which note you're closest to, and how many cents
+   flat (red) or sharp (orange) you are. Green means within ±5¢.
+3. **Target note** — pick a target note (C2–C6, default C4). The gauge and
    cent readout then measure how far you are from that note, and a dashed green
    line marks it on the history graph.
-4. **Record** — captures the microphone to a file and downloads
+4. **Training run** — a sequence of notes is generated (or taken from a melody
+   you type). Sing each note within the accuracy band and hold it for the
+   required time to advance to the next; the run only moves on once you're on
+   the note. Tune the **accuracy** (¢ band), **hold time**, **number of notes**,
+   and **pattern** (random walk / ascending / descending / wave / your own
+   melody). Transitions between notes are yours to manage — nothing is scored.
+5. **Record** — captures the microphone to a file and downloads
    `take-YYYY-MM-DD-HH-MM-SS.webm` (or `.m4a`/`.ogg` depending on browser).
-5. **Stop microphone** — releases the mic and resets everything.
+6. **Stop microphone** — releases the mic and resets everything.
 
 ## How it works
 

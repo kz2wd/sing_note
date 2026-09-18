@@ -23,11 +23,23 @@ const notePanel = document.getElementById('notePanel');
 const noteDisplay = document.getElementById('noteDisplay');
 const centsDisplay = document.getElementById('centsDisplay');
 const needle = document.getElementById('needle');
-const trainToggle = document.getElementById('trainToggle');
-const targetSelect = document.getElementById('targetSelect');
-const targetInfo = document.getElementById('targetInfo');
 const canvas = document.getElementById('history');
 const canvasCtx = canvas.getContext('2d');
+const targetSelect = document.getElementById('targetSelect');
+const targetInfo = document.getElementById('targetInfo');
+
+// Training-run controls
+const accuracySelect = document.getElementById('accuracySelect');
+const durationSelect = document.getElementById('durationSelect');
+const countSelect = document.getElementById('countSelect');
+const patternSelect = document.getElementById('patternSelect');
+const melodyRow = document.getElementById('melodyRow');
+const melodyInput = document.getElementById('melodyInput');
+const startRunBtn = document.getElementById('startRunBtn');
+const runStatusText = document.getElementById('runStatusText');
+const runProgress = document.getElementById('runProgress');
+const runProgressFill = document.getElementById('runProgressFill');
+const runNotes = document.getElementById('runNotes');
 
 // --- State ---
 let audioCtx = null;
@@ -48,6 +60,16 @@ let recStartedAt = 0;
 
 let cssW = 0;
 let cssH = 0;
+
+// Training-run state: hold the current note within tolerance for the required
+// time, then advance. Transitions are not scored.
+const run = {
+  active: false,
+  done: false,
+  notes: [], // array of midi numbers
+  index: 0,
+  holdStart: null, // epoch ms when the in-range hold began
+};
 
 // --- Helpers ---
 function clamp(v, lo, hi) {
@@ -86,6 +108,192 @@ function populateTargetSelect() {
 function updateTargetInfo() {
   const m = targetMidi();
   targetInfo.textContent = midiToName(m) + ' · ' + midiToFreq(m).toFixed(1) + ' Hz';
+}
+
+// --- Mode helpers ---
+function currentMode() {
+  const el = document.querySelector('input[name="mode"]:checked');
+  return el ? el.value : 'target';
+}
+
+function isFreeMode() {
+  return currentMode() === 'free';
+}
+
+// The effective cent band that counts as "in tune" for the current mode.
+function effectiveTolerance() {
+  if (currentMode() === 'run') return runToleranceCents();
+  return IN_TUNE_CENTS;
+}
+
+// The note the user is being measured against (null means "free").
+function currentTargetMidi() {
+  if (currentMode() === 'run') {
+    if (run.notes.length) {
+      const i = run.active ? run.index : run.notes.length - 1;
+      return run.notes[i];
+    }
+    return targetMidi(); // sensible fallback before a run starts
+  }
+  return targetMidi();
+}
+
+// --- Training run ---
+function runToleranceCents() {
+  return parseInt(accuracySelect.value, 10);
+}
+
+function runHoldMs() {
+  return parseFloat(durationSelect.value) * 1000;
+}
+
+const NOTE_BASE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+function nameToMidi(token) {
+  const m = /^([A-Ga-g])([\u266f#b\u266d]?)(\d)$/.exec(token.trim());
+  if (!m) return null;
+  let acc = 0;
+  if (m[2] === '\u266f' || m[2] === '#') acc = 1;
+  else if (m[2] === 'b' || m[2] === '\u266d') acc = -1;
+  return 12 * (parseInt(m[3], 10) + 1) + NOTE_BASE[m[1].toUpperCase()] + acc;
+}
+
+function parseMelody(text) {
+  const out = [];
+  for (const tok of text.trim().split(/[\s,;]+/).filter(Boolean)) {
+    const m = nameToMidi(tok);
+    if (m != null) out.push(m);
+  }
+  return out;
+}
+
+// Generate a comfortable C3..C5 sequence following the chosen pattern.
+function generateNotes(pattern, count) {
+  const LO = 48, HI = 72;
+  const step = Math.max(1, Math.round((HI - LO) / Math.max(1, count - 1)));
+  const notes = [];
+
+  if (pattern === 'up') {
+    for (let i = 0; i < count; i++) notes.push(clamp(LO + i * step, LO, HI));
+  } else if (pattern === 'down') {
+    for (let i = 0; i < count; i++) notes.push(clamp(HI - i * step, LO, HI));
+  } else if (pattern === 'wave') {
+    let v = LO, dir = 1;
+    for (let i = 0; i < count; i++) {
+      notes.push(clamp(Math.round(v), LO, HI));
+      v += dir * step;
+      if (v > HI) { v = HI; dir = -1; }
+      else if (v < LO) { v = LO; dir = 1; }
+    }
+  } else { // random walk
+    let v = 60; // start on C4
+    for (let i = 0; i < count; i++) {
+      notes.push(clamp(Math.round(v), LO, HI));
+      v += (Math.floor(Math.random() * 5) + 1) * (Math.random() < 0.5 ? -1 : 1);
+    }
+  }
+  return notes;
+}
+
+function renderRunNotes() {
+  runNotes.innerHTML = '';
+  run.notes.forEach((m) => {
+    const span = document.createElement('span');
+    span.className = 'note-chip';
+    span.textContent = midiToName(m);
+    runNotes.appendChild(span);
+  });
+}
+
+function startRun() {
+  const pattern = patternSelect.value;
+  let notes;
+  if (pattern === 'custom') {
+    notes = parseMelody(melodyInput.value);
+    if (!notes.length) {
+      runStatusText.textContent = 'Enter at least one note (e.g. C4) to start.';
+      return;
+    }
+  } else {
+    notes = generateNotes(pattern, parseInt(countSelect.value, 10));
+  }
+
+  run.active = true;
+  run.done = false;
+  run.notes = notes;
+  run.index = 0;
+  run.holdStart = null;
+  startRunBtn.textContent = 'Restart run';
+  runProgress.hidden = false;
+  runNotes.hidden = false;
+  renderRunNotes();
+  updateRunUI();
+}
+
+function resetRun() {
+  run.active = false;
+  run.done = false;
+  run.notes = [];
+  run.index = 0;
+  run.holdStart = null;
+  startRunBtn.textContent = 'Start run';
+  runStatusText.textContent = '';
+  runProgressFill.style.width = '0%';
+  runProgress.hidden = true;
+  runNotes.hidden = true;
+  runNotes.innerHTML = '';
+}
+
+// Hold-to-advance: in range, accumulate; out of range, reset. No transition score.
+function advanceRun(midi, now) {
+  const target = run.notes[run.index];
+  const inRange = Math.abs((midi - target) * 100) <= runToleranceCents();
+
+  if (!inRange) {
+    run.holdStart = null;
+    return;
+  }
+
+  if (run.holdStart == null) {
+    run.holdStart = now;
+  } else if (now - run.holdStart >= runHoldMs()) {
+    run.holdStart = null;
+    run.index++;
+    if (run.index >= run.notes.length) {
+      run.active = false;
+      run.done = true;
+    }
+  }
+}
+
+function updateRunUI() {
+  if (currentMode() !== 'run') return;
+  if (!run.active && !run.done) return;
+
+  if (run.done) {
+    runStatusText.textContent = 'Run complete! \u{1F389}';
+    runProgressFill.style.width = '100%';
+  } else {
+    const remaining = runHoldMs();
+    const elapsed = run.holdStart != null ? Date.now() - run.holdStart : 0;
+    runStatusText.textContent = 'Note ' + (run.index + 1) + ' / ' + run.notes.length;
+    runProgressFill.style.width = Math.round(clamp(elapsed / remaining, 0, 1) * 100) + '%';
+  }
+
+  const chips = runNotes.children;
+  for (let i = 0; i < chips.length; i++) {
+    chips[i].classList.toggle('current', i === run.index && !run.done);
+    chips[i].classList.toggle('done', run.done || i < run.index);
+  }
+}
+
+function onModeChange() {
+  const mode = currentMode();
+  document.querySelectorAll('.mode-body').forEach((b) => {
+    b.hidden = b.getAttribute('data-body') !== mode;
+  });
+  if (mode !== 'run') resetRun();
+  updateRunUI();
 }
 
 // --- Pitch detection (autocorrelation, ACF2+ style) ---
@@ -172,19 +380,22 @@ function processFrame() {
   const freq = detectPitch();
 
   if (freq < 0) {
-    // Silence: reset hysteresis and gauge.
+    // Silence: reset hysteresis, gauge, and any in-progress hold.
     lastNearest = null;
+    if (run.active) run.holdStart = null;
     notePanel.classList.remove('in', 'flat', 'sharp');
     noteDisplay.textContent = '—';
     centsDisplay.textContent = '±0 ¢';
     needle.style.left = '50%';
+    updateRunUI();
     return;
   }
 
   const midi = freqToMidi(freq);
-  const ref = trainToggle.checked ? targetMidi() : nearestNoteWithHysteresis(midi);
+  const ref = isFreeMode() ? nearestNoteWithHysteresis(midi) : currentTargetMidi();
   const devCents = (midi - ref) * 100;
   const roundedCents = Math.round(devCents);
+  const tolerance = effectiveTolerance();
 
   noteDisplay.textContent = midiToName(ref);
   centsDisplay.textContent =
@@ -192,12 +403,15 @@ function processFrame() {
 
   notePanel.classList.remove('in', 'flat', 'sharp');
   notePanel.classList.add(
-    Math.abs(roundedCents) <= IN_TUNE_CENTS ? 'in' : devCents < 0 ? 'flat' : 'sharp'
+    Math.abs(roundedCents) <= tolerance ? 'in' : devCents < 0 ? 'flat' : 'sharp'
   );
   needle.style.left = (50 + clamp(devCents, -50, 50)) + '%';
 
+  if (run.active) advanceRun(midi, Date.now());
+
   history.push({ t: Date.now(), midi });
   pruneHistory();
+  updateRunUI();
 }
 
 // --- History canvas ---
@@ -243,9 +457,9 @@ function drawHistory() {
     return;
   }
 
-  // Dashed green target line in train mode.
-  if (trainToggle.checked) {
-    const y = yOf(targetMidi());
+  // Dashed green target line in target/run modes.
+  if (!isFreeMode()) {
+    const y = yOf(currentTargetMidi());
     canvasCtx.strokeStyle = 'rgba(52, 199, 123, 0.8)';
     canvasCtx.setLineDash([6, 4]);
     canvasCtx.beginPath();
@@ -340,6 +554,7 @@ function stopMic() {
 
   history.length = 0;
   lastNearest = null;
+  resetRun();
   noteDisplay.textContent = '—';
   centsDisplay.textContent = '±0 ¢';
   needle.style.left = '50%';
@@ -431,8 +646,17 @@ recordBtn.addEventListener('click', () => {
   else startRecording();
 });
 targetSelect.addEventListener('change', updateTargetInfo);
+
+document.querySelectorAll('input[name="mode"]').forEach((r) =>
+  r.addEventListener('change', onModeChange)
+);
+patternSelect.addEventListener('change', () => {
+  melodyRow.hidden = patternSelect.value !== 'custom';
+});
+startRunBtn.addEventListener('click', startRun);
 window.addEventListener('resize', sizeCanvas);
 
 populateTargetSelect();
 sizeCanvas();
 drawHistory();
+onModeChange();
